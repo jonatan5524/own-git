@@ -1,7 +1,7 @@
 # own-git
 implementing my own git tool
 
-implementing git CLI like called wyag
+implementing a basic git CLI like called wyag
 
 will implement the following git features:
 
