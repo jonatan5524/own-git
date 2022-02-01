@@ -1,27 +1,16 @@
 #!/usr/bin/env python3
 
 import argparse
-import collections
-import configparser
-import hashlib
-import os
-import re
+from io import BufferedReader
 import sys
-import zlib
+
+from gitObject import GitBlob, object_find, object_read, object_write
+from gitRepository import GitRepository, repo_create, repo_find
 
 argparser = argparse.ArgumentParser()
 
 argsubparsers = argparser.add_subparsers(title="Commands", dest="command")
 argsubparsers.required = True
-
-argsp = argsubparsers.add_parser("init", help = "initialize a new, empty repository.")
-argsp.add_argument(
-    "path",
-    metavar = "directory",
-    nargs = "?",
-    default = ".",
-    help = "Where to create the repository"
-)
 
 def main(argv = sys.argv[1:]):
     args = argparser.parse_args(argv)
@@ -55,110 +44,86 @@ def main(argv = sys.argv[1:]):
     elif args.command == "tag":
         cmd_tag(args)
 
-def cmd_init(args):
+argsp = argsubparsers.add_parser("init", help = "initialize a new, empty repository.")
+argsp.add_argument(
+    "path",
+    metavar = "directory",
+    nargs = "?",
+    default = ".",
+    help = "Where to create the repository"
+)
+
+def cmd_init(args: argparse.Namespace):
     repo_create(args.path)
 
-class GitRepository(object):
-    
-    worktree = None
-    gitdir = None
-    config = None
+argsp = argsubparsers.add_parser("cat-file", help = "Provide content of repository objects")
+argsp.add_argument(
+    "type",
+    metavar = "type",
+    choices = ["blob", "commit", "tag", "tree"],
+    help = "Specify the type"
+)
+argsp.add_argument(
+    "object",
+    metavar = "object",
+    help = "The object to display"
+)
 
-    def __init__(self, path: str, force = False):
-        self.worktree = path
-        self.gitdir = os.path.join(path, ".git")
+def cmd_cat_file(args: argparse.Namespace):
+    repo = repo_find()
+    cat_file(repo, args.object, fmt = args.type.encode())
 
-        if not (force or os.path.isdir(self.gitdir)):
-            raise Exception("Not a Git repository %s" % path)
+def cat_file(repo: GitRepository, obj: str, fmt = None):
+    git_object = object_read(repo, object_find(repo, obj, fmt = fmt))
+    sys.stdout.buffer.write(git_object.serialize())
 
-        self.config = configparser.ConfigParser()
-        config_file = repo_file(self, "config")
-        
-        if config_file and os.path.exists(config_file):
-            self.config.read([config_file])
-        elif not force:
-            raise Exception("Configuration file missing")
+argsp = argsubparsers.add_parser(
+    "hash-object",
+    help = "Compute object ID and optionally creates a blob from a file"
+)
+argsp.add_argument(
+    "-t",
+    metavar = "type",
+    dest = "type",
+    choices = ["blob", "commit", "tag", "tree"],
+    default = "blob",
+    help = "Specift the type"
+)
+argsp.add_argument(
+    "-w",
+    dest = "write",
+    action = "store_true",
+    help = "Actually write the object into the database"
+)
+argsp.add_argument(
+    "path",
+    help = "Read the object from <file>"
+)
 
-        if not force:
-            version = int(self.config.get("core", "repositoryformatversion"))
-
-            if version != 0:
-                raise Exception("Unsupported repositoryformatversion %s" % version)
-
-def repo_path(repo: GitRepository, *path: str) -> str:
-    return os.path.join(repo.gitdir, *path)
-
-def repo_file(repo: GitRepository, *path: str, mkdir: bool = False) -> str:
-    if repo_dir(repo, *path[:-1], mkdir = mkdir):
-        return repo_path(repo, *path)
-
-def repo_dir(repo: GitRepository, *path: str, mkdir: bool = False) -> str:
-    path = repo_path(repo, *path)
-
-    if os.path.exists(path):
-        if(os.path.isdir(path)):
-            return path
-        else:
-            raise Exception("Not a directory %s" % path)
-
-    if mkdir:
-        os.makedirs(path)
-
-        return path
-
-    return None
-
-def repo_default_config() -> configparser.ConfigParser:
-    config = configparser.ConfigParser()
-
-    config.add_section("core")
-    config.set("core", "repositoryformatversion", "0")
-    config.set("core", "filemode", "false")
-    config.set("core", "base", "false")
-
-    return config
-
-def repo_create(path: str) -> GitRepository:
-    repo = GitRepository(path, True)
-
-    if os.path.exists(repo.worktree):
-        if not os.path.isdir(repo.worktree):
-            raise Exception("%s is not a directory!" % path)
-        
-        if os.listdir(repo.worktree):
-            raise Exception("%s is not empty!" % path)
+def cmd_hash_object(args: argparse.Namespace):
+    if args.write:
+        repo = GitRepository(".")
     else:
-        os.makedirs(repo.worktree)
+        repo = None
 
-    assert(repo_dir(repo, "branches", mkdir = True))
-    assert(repo_dir(repo, "objects", mkdir = True))
-    assert(repo_dir(repo, "refs", "tags", mkdir = True))
-    assert(repo_dir(repo, "branches", "heads", mkdir = True))
+    with open(args.path, "rb") as fd:
+        sha = object_hash(fd, args.type.encode(), repo)
+        print(sha)
 
-    with open(repo_file(repo, "description"), "w") as f:
-        f.write("Unamed repository: edit this file 'description' to name the repository.\n")
+def object_hash(fd: BufferedReader, type: str, repo: GitRepository = None) -> str:
+    data = fd.read()
 
-    with open(repo_file(repo, "HEAD"), "w") as f:
-        f.write("ref: refs/heads/master\n")
+    if type == b'commit':
+        obj = GitCommit(repo, data)
+    elif type == b'tree':
+        obj = GitTree(repo, data)  
+    elif type == b'tag':
+        obj = GitTag(repo, data)
+    elif type == b'blob':
+        obj = GitBlob(repo, data)
+    else:
+        raise Exception("Unkown type %s!" % fmt)
 
-    with open(repo_file(repo, "config"), "w") as f:
-        config = repo_default_config()
-        config.write(f)
-
-    return repo
-
-def repo_find(path: str = ".", required: bool = True) -> GitRepository:
-    path = os.realpath(path)
-
-    if os.path.isdir(os.path.oin(path, ".git")):
-        return GitRepository(path)
-
-    parent = os.path.realpath(os.path.join(path, ".."))
-
-    if parent == path:
-        if required:
-            raise Exception("No git directory.")
-        else:
-            return None
-
-    return repo_find(parent, required)
+    return object_write(obj, repo != None)
+        
+    
