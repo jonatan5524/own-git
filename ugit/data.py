@@ -40,3 +40,14 @@ def get_object(object_id: str, expected: str = "blob") -> bytes:
         assert fmt == expected, f"Expected {expected}, got {fmt}"
 
     return content
+
+
+def set_HEAD(object_id: str):
+    with open(os.path.join(GIT_DIR, "HEAD"), "w") as f:
+        f.write(object_id)
+
+
+def get_HEAD() -> str:
+    if os.path.isfile(os.path.join(GIT_DIR, "HEAD")):
+        with open(os.path.join(GIT_DIR, "HEAD"), "r") as f:
+            return f.read().strip()

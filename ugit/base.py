@@ -8,10 +8,19 @@ from . import data
 
 def commit(massage: str) -> str:
     commit = f"tree {write_tree()}\n"
+
+    head = data.get_HEAD()
+    if head:
+        commit += f"parent {head}"
+
     commit += "\n"
     commit += f"{massage}\n"
 
-    return data.hash_object(commit.encode(), "commit")
+    object_id = data.hash_object(commit.encode(), "commit")
+
+    data.set_HEAD(object_id)
+
+    return object_id
 
 
 def write_tree(directory: str = ".") -> str:
