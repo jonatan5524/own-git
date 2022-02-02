@@ -7,5 +7,6 @@ implementing a basic git CLI like called ugit to learn how git works on the insi
 will implement the following git features: 
 	- init
 	- hash-object
+	- cat-file
 
 using the guide: https://www.leshenko.net/p/ugit/#

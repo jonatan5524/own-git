@@ -16,3 +16,8 @@ def hash_object(raw_file: bytes) -> str:
         f.write(raw_file)
 
     return object_id
+
+
+def get_object(object_id: str) -> bytes:
+    with open(os.path.join(GIT_DIR, "objects", object_id), "rb") as f:
+        return f.read()
