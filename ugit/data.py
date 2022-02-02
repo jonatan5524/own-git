@@ -42,12 +42,17 @@ def get_object(object_id: str, expected: str = "blob") -> bytes:
     return content
 
 
-def set_head(object_id: str):
-    with open(os.path.join(GIT_DIR, "HEAD"), "w") as f:
+def update_ref(ref: str, object_id: str):
+    ref_path = os.path.join(GIT_DIR, ref)
+    os.makedirs(os.path.dirname(ref_path), exist_ok=True)
+
+    with open(ref_path, "w") as f:
         f.write(object_id)
 
 
-def get_head() -> str:
-    if os.path.isfile(os.path.join(GIT_DIR, "HEAD")):
-        with open(os.path.join(GIT_DIR, "HEAD"), "r") as f:
+def get_ref(ref: str) -> str:
+    ref_path = os.path.join(GIT_DIR, ref)
+
+    if os.path.isfile(ref_path):
+        with open(ref_path, "r") as f:
             return f.read().strip()

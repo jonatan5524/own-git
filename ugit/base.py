@@ -1,17 +1,20 @@
-from email import message
 import os
-import itertools
-import operator
+import string
 from typing import Dict, Iterator, Tuple
 from collections import namedtuple
 
 from . import data
 
 
+def create_tag(name: str, object_id: str):
+    data.update_ref(os.path.join("refs", "tags", name), object_id)
+
+
 def checkout(object_id: str):
     commit = get_commit(object_id)
     read_tree(commit.tree)
-    data.set_head(object_id)
+    data.update_ref("HEAD", object_id)
+
 
 Commit = namedtuple("Commit", ["tree", "parent", "message"])
 
@@ -44,7 +47,7 @@ def get_commit(object_id: str) -> Commit:
 def commit(massage: str) -> str:
     commit = f"tree {write_tree()}\n"
 
-    head = data.get_head()
+    head = data.get_ref("HEAD")
     if head:
         commit += f"parent {head}"
 
@@ -53,7 +56,7 @@ def commit(massage: str) -> str:
 
     object_id = data.hash_object(commit.encode(), "commit")
 
-    data.set_head(object_id)
+    data.update_ref("HEAD", object_id)
 
     return object_id
 
@@ -138,6 +141,26 @@ def get_tree(object_id: str, base_path: str = "") -> Dict[str, str]:
             assert False, f"Uknown tree entry {fmt}"
 
     return result
+
+
+def get_object_id(name: str) -> str:
+    ref_to_try = [
+        name,
+        os.path.join("refs", name),
+        os.path.join("refs", "tags", name),
+        os.path.join("refs", "heads", name),
+    ]
+
+    for ref in ref_to_try:
+        if data.get_ref(ref):
+            return data.get_ref(ref)
+
+    is_hex = all(c in string.hexdigits for c in name)
+
+    if len(name) == 40 and is_hex:
+        return name
+
+    assert False, f"Unkown name {name}"
 
 
 def _iter_tree_entries(object_id: str) -> Iterator[Tuple[str, str, str]]:

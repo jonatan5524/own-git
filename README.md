@@ -11,5 +11,6 @@ will implement the following git commands features:
 	- write-tree
 	- commit
 	- log
+	- tag
 
 using the guide: https://www.leshenko.net/p/ugit/#
