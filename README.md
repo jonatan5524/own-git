@@ -8,5 +8,6 @@ will implement the following git features:
 	- init
 	- hash-object
 	- cat-file
+	- write-tree
 
 using the guide: https://www.leshenko.net/p/ugit/#
