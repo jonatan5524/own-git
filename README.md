@@ -10,5 +10,6 @@ will implement the following git commands features:
 	- cat-file
 	- write-tree
 	- commit
+	- log
 
 using the guide: https://www.leshenko.net/p/ugit/#

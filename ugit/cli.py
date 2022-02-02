@@ -2,8 +2,7 @@
 import argparse
 import os
 import sys
-
-from numpy import require
+import textwrap
 
 from . import base
 from . import data
@@ -42,6 +41,10 @@ def parse_args():
     commit_parser.set_defaults(func=commit)
     commit_parser.add_argument("-m", "--massage", required=True)
 
+    log_parser = commands.add_parser("log")
+    log_parser.set_defaults(func=log)
+    log_parser.add_argument("oid", nargs="?")
+
     return parser.parse_args()
 
 
@@ -71,3 +74,16 @@ def read_tree(args: argparse.Namespace):
 
 def commit(args: argparse.Namespace):
     print(base.commit(args.massage))
+
+
+def log(args: argparse.Namespace):
+    object_id = args.oid or data.get_HEAD()
+
+    while object_id:
+        commit = base.get_commit(object_id)
+
+        print(f"commit {object_id}\n")
+        print(textwrap.indent(commit.message, "			"))
+        print("")
+
+        object_id = commit.parent

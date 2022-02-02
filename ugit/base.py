@@ -1,9 +1,38 @@
+from email import message
 import os
+import itertools
+import operator
 from typing import Dict, Iterator, Tuple
-
-from numpy import full
+from collections import namedtuple
 
 from . import data
+
+Commit = namedtuple("Commit", ["tree", "parent", "message"])
+
+
+def get_commit(object_id: str) -> Commit:
+    parent = None
+
+    commit = data.get_object(object_id, "commit").decode()
+    lines = commit.splitlines()
+
+    for line in lines:
+        if " " not in line:
+            break
+
+        key, value = line.split(" ", 1)
+
+        if key == "tree":
+            tree = value
+        elif key == "parent":
+            parent = value
+        else:
+            assert False, f"Uknown field {key}"
+
+    if parent == None:
+        line = lines[lines.index(line) + 1]
+
+    return Commit(tree=tree, parent=parent, message=line)
 
 
 def commit(massage: str) -> str:
