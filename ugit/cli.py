@@ -45,6 +45,10 @@ def parse_args():
     log_parser.set_defaults(func=log)
     log_parser.add_argument("oid", nargs="?")
 
+    checkout_parser = commands.add_parser("checkout")
+    checkout_parser.set_defaults(func=checkout)
+    checkout_parser.add_argument("oid")
+
     return parser.parse_args()
 
 
@@ -77,7 +81,7 @@ def commit(args: argparse.Namespace):
 
 
 def log(args: argparse.Namespace):
-    object_id = args.oid or data.get_HEAD()
+    object_id = args.oid or data.get_head()
 
     while object_id:
         commit = base.get_commit(object_id)
@@ -87,3 +91,7 @@ def log(args: argparse.Namespace):
         print("")
 
         object_id = commit.parent
+
+
+def checkout(args: argparse.Namespace):
+    base.checkout(args.oid)

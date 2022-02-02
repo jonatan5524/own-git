@@ -7,6 +7,12 @@ from collections import namedtuple
 
 from . import data
 
+
+def checkout(object_id: str):
+    commit = get_commit(object_id)
+    read_tree(commit.tree)
+    data.set_head(object_id)
+
 Commit = namedtuple("Commit", ["tree", "parent", "message"])
 
 
@@ -38,7 +44,7 @@ def get_commit(object_id: str) -> Commit:
 def commit(massage: str) -> str:
     commit = f"tree {write_tree()}\n"
 
-    head = data.get_HEAD()
+    head = data.get_head()
     if head:
         commit += f"parent {head}"
 
@@ -47,7 +53,7 @@ def commit(massage: str) -> str:
 
     object_id = data.hash_object(commit.encode(), "commit")
 
-    data.set_HEAD(object_id)
+    data.set_head(object_id)
 
     return object_id
 
