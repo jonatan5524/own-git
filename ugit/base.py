@@ -6,6 +6,14 @@ from numpy import full
 from . import data
 
 
+def commit(massage: str) -> str:
+    commit = f"tree {write_tree()}\n"
+    commit += "\n"
+    commit += f"{massage}\n"
+
+    return data.hash_object(commit.encode(), "commit")
+
+
 def write_tree(directory: str = ".") -> str:
     entries = []
     with os.scandir(directory) as dir:

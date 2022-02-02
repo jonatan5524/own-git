@@ -3,6 +3,8 @@ import argparse
 import os
 import sys
 
+from numpy import require
+
 from . import base
 from . import data
 
@@ -36,6 +38,10 @@ def parse_args():
     read_tree_parser.set_defaults(func=read_tree)
     read_tree_parser.add_argument("tree")
 
+    commit_parser = commands.add_parser("commit")
+    commit_parser.set_defaults(func=commit)
+    commit_parser.add_argument("-m", "--massage", required=True)
+
     return parser.parse_args()
 
 
@@ -61,3 +67,7 @@ def write_tree(args: argparse.Namespace):
 
 def read_tree(args: argparse.Namespace):
     base.read_tree(args.tree)
+
+
+def commit(args: argparse.Namespace):
+    print(base.commit(args.massage))
