@@ -38,11 +38,35 @@ def is_ignored(path: str) -> bool:
 
 
 def read_tree(tree_object_id: str):
+    _empty_current_directory()
+
     for path, object_id in get_tree(tree_object_id, base_path="./").items():
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
         with open(path, "wb") as f:
             f.write(data.get_object(object_id))
+
+
+def _empty_current_directory():
+    for root, dirnames, filenames in os.walk(".", topdown=False):
+        for filename in filenames:
+            path = os.path.relpath(os.path.join(root, filename))
+
+            if is_ignored(path) or not os.path.isfile(path):
+                continue
+
+            os.remove(path)
+
+        for dirname in dirnames:
+            path = os.path.relpath(os.path.join(root, dirname))
+
+            if is_ignored(path):
+                continue
+
+            try:
+                os.rmdir(path)
+            except (FileNotFoundError, OSError):
+                pass
 
 
 def get_tree(object_id: str, base_path: str = "") -> Dict[str, str]:
