@@ -6,14 +6,20 @@ from collections import deque, namedtuple
 from . import data
 
 
+def create_branch(name: str, object_id: str):
+    data.update_ref(os.path.join("refs", "heads", name),
+                    data.RefValue(symbolic=False, value=object_id))
+
+
 def create_tag(name: str, object_id: str):
-    data.update_ref(os.path.join("refs", "tags", name), object_id)
+    data.update_ref(os.path.join("refs", "tags", name),
+                    data.RefValue(symbolic=False, value=object_id))
 
 
 def checkout(object_id: str):
     commit = get_commit(object_id)
     read_tree(commit.tree)
-    data.update_ref("HEAD", object_id)
+    data.update_ref("HEAD", data.RefValue(symbolic=False, value=object_id))
 
 
 Commit = namedtuple("Commit", ["tree", "parent", "message"])
@@ -47,7 +53,7 @@ def get_commit(object_id: str) -> Commit:
 def commit(massage: str) -> str:
     commit = f"tree {write_tree()}\n"
 
-    head = data.get_ref("HEAD")
+    head = data.get_ref("HEAD").value
     if head:
         commit += f"parent {head}"
 
@@ -56,7 +62,7 @@ def commit(massage: str) -> str:
 
     object_id = data.hash_object(commit.encode(), "commit")
 
-    data.update_ref("HEAD", object_id)
+    data.update_ref("HEAD", data.RefValue(symbolic=False, value=object_id))
 
     return object_id
 
@@ -155,8 +161,8 @@ def get_object_id(name: str) -> str:
     ]
 
     for ref in ref_to_try:
-        if data.get_ref(ref):
-            return data.get_ref(ref)
+        if data.get_ref(ref, deref=False):
+            return data.get_ref(ref).value
 
     is_hex = all(c in string.hexdigits for c in name)
 

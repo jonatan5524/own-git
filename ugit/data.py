@@ -1,7 +1,9 @@
-from doctest import REPORTING_FLAGS
 import hashlib
 import os
+from typing import Tuple
 import zlib
+
+from collections import namedtuple
 
 GIT_DIR = ".ugit"
 
@@ -43,23 +45,50 @@ def get_object(object_id: str, expected: str = "blob") -> bytes:
     return content
 
 
-def update_ref(ref: str, object_id: str):
+RefValue = namedtuple("RefValue", ["symbolic", "value"])
+
+
+def update_ref(ref: str, refValue: RefValue, deref: bool = True):
+    ref = _get_ref_internal(ref, deref)[0]
+
+    assert refValue.value
+
+    if refValue.symbolic:
+        value = f"ref: {refValue.value}"
+    else:
+        value = refValue.value
+
     ref_path = os.path.join(GIT_DIR, ref)
     os.makedirs(os.path.dirname(ref_path), exist_ok=True)
 
     with open(ref_path, "w") as f:
-        f.write(object_id)
+        f.write(value)
 
 
-def get_ref(ref: str) -> str:
+def get_ref(ref: str, deref=True) -> RefValue:
+    return _get_ref_internal(ref, deref)[1]
+
+
+def _get_ref_internal(ref: str, deref) -> Tuple[str, RefValue]:
     ref_path = os.path.join(GIT_DIR, ref)
+    value = None
 
     if os.path.isfile(ref_path):
         with open(ref_path, "r") as f:
-            return f.read().strip()
+            value = f.read().strip()
+
+    symbolic = bool(value) and value.startswith("ref:")
+
+    if symbolic:
+        value = value.split(":", 1)[1].strip()
+
+        if deref:
+            return _get_ref_internal(value, deref)
+
+    return ref, RefValue(symbolic=symbolic, value=value)
 
 
-def iter_refs():
+def iter_refs(deref=True):
     refs = ["HEAD"]
 
     for root, _, filenames in os.walk(os.path.join(GIT_DIR, "refs")):
@@ -67,4 +96,4 @@ def iter_refs():
         refs.extend(os.path.join(root, name) for name in filenames)
 
     for refname in refs:
-        yield refname, get_ref(refname)
+        yield refname, get_ref(refname, deref=deref)

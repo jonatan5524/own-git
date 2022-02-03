@@ -60,6 +60,11 @@ def parse_args():
     k_parser = commands.add_parser("k")
     k_parser.set_defaults(func=k)
 
+    branch_parser = commands.add_parser("branch")
+    branch_parser.set_defaults(func=branch)
+    branch_parser.add_argument("name")
+    branch_parser.add_argument("start_point", default="@", type=oid, nargs="?")
+
     return parser.parse_args()
 
 
@@ -115,11 +120,12 @@ def k(args: argparse.Namespace):
 
     object_ids = set()
 
-    for refname, ref in data.iter_refs():
+    for refname, ref in data.iter_refs(deref=False):
         dot += f'"{refname}" [shape = note]\n'
-        dot += f'"{refname}" -> {ref}'
+        dot += f'"{refname}" -> {ref.value}'
 
-        object_ids.add(ref)
+        if not ref.symbolic:
+            object_ids.add(ref.value)
 
     for object_id in base.iter_commits_and_parents(object_ids):
         commit = base.get_commit(object_id)
@@ -135,3 +141,8 @@ def k(args: argparse.Namespace):
         ["dot", "-Tx11", "/dev/stdin"],
             stdin=subprocess.PIPE) as proc:
         proc.communicate(dot.encode())
+
+
+def branch(args: argparse.Namespace):
+    base.create_branch(args.name, args.start_point)
+    print(f"Branch {args.name} created at {args.start_point[:10]}")
