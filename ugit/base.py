@@ -1,7 +1,7 @@
 import os
 import string
-from typing import Dict, Iterator, Tuple
-from collections import namedtuple
+from typing import Deque, Dict, Iterator, Set, Tuple
+from collections import deque, namedtuple
 
 from . import data
 
@@ -144,6 +144,9 @@ def get_tree(object_id: str, base_path: str = "") -> Dict[str, str]:
 
 
 def get_object_id(name: str) -> str:
+    if name == "@":
+        name = "HEAD"
+
     ref_to_try = [
         name,
         os.path.join("refs", name),
@@ -172,3 +175,21 @@ def _iter_tree_entries(object_id: str) -> Iterator[Tuple[str, str, str]]:
     for entry in tree.decode().splitlines():
         fmt, object_id, name = entry.split(" ", 2)
         yield fmt, object_id, name
+
+
+def iter_commits_and_parents(object_ids: Deque[str]) -> Iterator[str]:
+    object_ids = deque(object_ids)
+    visited = set()
+
+    while object_ids:
+        object_id = object_ids.popleft()
+
+        if not object_id or object_id in visited:
+            continue
+
+        visited.add(object_id)
+
+        yield object_id
+
+        commit = get_commit(object_id)
+        object_ids.appendleft(commit.parent)

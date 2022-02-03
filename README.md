@@ -12,5 +12,9 @@ will implement the following git commands features:
 	- commit
 	- log
 	- tag
+	- k (visual graphviz)
+
+requirements:
+	- graphviz installed on your system
 
 using the guide: https://www.leshenko.net/p/ugit/#

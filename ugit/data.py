@@ -1,3 +1,4 @@
+from doctest import REPORTING_FLAGS
 import hashlib
 import os
 import zlib
@@ -56,3 +57,14 @@ def get_ref(ref: str) -> str:
     if os.path.isfile(ref_path):
         with open(ref_path, "r") as f:
             return f.read().strip()
+
+
+def iter_refs():
+    refs = ["HEAD"]
+
+    for root, _, filenames in os.walk(os.path.join(GIT_DIR, "refs")):
+        root = os.path.relpath(root, GIT_DIR)
+        refs.extend(os.path.join(root, name) for name in filenames)
+
+    for refname in refs:
+        yield refname, get_ref(refname)

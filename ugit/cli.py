@@ -1,5 +1,6 @@
 
 import argparse
+import subprocess
 import os
 import sys
 import textwrap
@@ -30,14 +31,14 @@ def parse_args():
 
     cat_file_parser = commands.add_parser("cat-file")
     cat_file_parser.set_defaults(func=cat_file)
-    cat_file_parser.add_argument("object", type=oid)
+    cat_file_parser.add_argument("object", default="@", type=oid)
 
     write_tree_parser = commands.add_parser("write-tree")
     write_tree_parser.set_defaults(func=write_tree)
 
     read_tree_parser = commands.add_parser("read-tree")
     read_tree_parser.set_defaults(func=read_tree)
-    read_tree_parser.add_argument("tree", type=oid)
+    read_tree_parser.add_argument("tree", default="@", type=oid)
 
     commit_parser = commands.add_parser("commit")
     commit_parser.set_defaults(func=commit)
@@ -45,16 +46,19 @@ def parse_args():
 
     log_parser = commands.add_parser("log")
     log_parser.set_defaults(func=log)
-    log_parser.add_argument("oid", type=oid, nargs="?")
+    log_parser.add_argument("oid", type=oid, default="@", nargs="?")
 
     checkout_parser = commands.add_parser("checkout")
     checkout_parser.set_defaults(func=checkout)
-    checkout_parser.add_argument("oid", type=oid)
+    checkout_parser.add_argument("oid", default="@", type=oid)
 
     tag_parser = commands.add_parser("tag")
     tag_parser.set_defaults(func=tag)
     tag_parser.add_argument("name")
-    tag_parser.add_argument("oid", type=oid, nargs="?")
+    tag_parser.add_argument("oid", default="@", type=oid, nargs="?")
+
+    k_parser = commands.add_parser("k")
+    k_parser.set_defaults(func=k)
 
     return parser.parse_args()
 
@@ -88,9 +92,7 @@ def commit(args: argparse.Namespace):
 
 
 def log(args: argparse.Namespace):
-    object_id = args.oid or data.get_ref("HEAD")
-
-    while object_id:
+    for object_id in base.iter_commits_and_parents({args.oid}):
         commit = base.get_commit(object_id)
 
         print(f"commit {object_id}\n")
@@ -105,5 +107,31 @@ def checkout(args: argparse.Namespace):
 
 
 def tag(args: argparse.Namespace):
-    oid = args.oid or data.get_ref("HEAD")
-    base.create_tag(args.name, oid)
+    base.create_tag(args.name, args.oid)
+
+
+def k(args: argparse.Namespace):
+    dot = "digraph commits {\n"
+
+    object_ids = set()
+
+    for refname, ref in data.iter_refs():
+        dot += f'"{refname}" [shape = note]\n'
+        dot += f'"{refname}" -> {ref}'
+
+        object_ids.add(ref)
+
+    for object_id in base.iter_commits_and_parents(object_ids):
+        commit = base.get_commit(object_id)
+        dot += f'"{object_id}" [shape=box style=filled label="{object_id[:10]}"]\n'
+
+        if commit.parent:
+            dot += f'"{object_id}" -> "{commit.parent}"\n'
+
+    dot += "}"
+    print(dot)
+
+    with subprocess.Popen(
+        ["dot", "-Tx11", "/dev/stdin"],
+            stdin=subprocess.PIPE) as proc:
+        proc.communicate(dot.encode())
