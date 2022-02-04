@@ -4,6 +4,7 @@ import subprocess
 import os
 import sys
 import textwrap
+from typing import Dict
 
 from . import base
 from . import data
@@ -72,6 +73,10 @@ def parse_args():
     reset_parser.set_defaults(func=reset)
     reset_parser.add_argument("commit", type=oid)
 
+    show_parser = commands.add_parser("show")
+    show_parser.set_defaults(func=show)
+    show_parser.add_argument("oid", default="@", type=oid, nargs="?")
+
     return parser.parse_args()
 
 
@@ -111,11 +116,7 @@ def log(args: argparse.Namespace):
 
     for object_id in base.iter_commits_and_parents({args.oid}):
         commit = base.get_commit(object_id)
-
-        refs_str = f"({', '.join(refs[object_id])})" if object_id in refs else ""
-        print(f"commit {object_id}{refs_str}\n")
-        print(textwrap.indent(commit.message, "			"))
-        print("")
+        _print_commit(object_id, commit, refs.get(object_id))
 
         object_id = commit.parent
 
@@ -180,3 +181,19 @@ def status(args: argparse.Namespace):
 
 def reset(args: argparse.Namespace):
     base.reset(args.commit)
+
+
+def show(args: argparse.Namespace):
+    if not args.oid:
+        return
+
+    commit = base.get_commit(args.oid)
+    _print_commit(args.oid, commit)
+
+
+def _print_commit(object_id: str, commit: base.Commit, refs: Dict[str, str] = None):
+    refs_str = f"({', '.join(refs)})" if refs else ""
+
+    print(f"commit {object_id}{refs_str}\n")
+    print(textwrap.indent(commit.message, "			"))
+    print("")

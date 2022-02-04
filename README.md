@@ -17,6 +17,7 @@ will implement the following git commands features:
 - branch
 - status
 - reset
+- show
 
 requirements: - graphviz installed on your system
 
