@@ -50,7 +50,7 @@ def parse_args():
 
     checkout_parser = commands.add_parser("checkout")
     checkout_parser.set_defaults(func=checkout)
-    checkout_parser.add_argument("oid", default="@", type=oid)
+    checkout_parser.add_argument("commit")
 
     tag_parser = commands.add_parser("tag")
     tag_parser.set_defaults(func=tag)
@@ -69,7 +69,7 @@ def parse_args():
 
 
 def init(args: argparse.Namespace):
-    data.init()
+    base.init()
     print(
         f"Initialized empty ugit repository in {os.path.join(os.getcwd(), data.GIT_DIR)}")
 
@@ -108,7 +108,7 @@ def log(args: argparse.Namespace):
 
 
 def checkout(args: argparse.Namespace):
-    base.checkout(args.oid)
+    base.checkout(args.commit)
 
 
 def tag(args: argparse.Namespace):

@@ -6,6 +6,12 @@ from collections import deque, namedtuple
 from . import data
 
 
+def init():
+    data.init()
+    data.update_ref("HEAD", data.RefValue(
+        symbolic=True, value=os.path.join("refs", "heads", "master")))
+
+
 def create_branch(name: str, object_id: str):
     data.update_ref(os.path.join("refs", "heads", name),
                     data.RefValue(symbolic=False, value=object_id))
@@ -16,13 +22,25 @@ def create_tag(name: str, object_id: str):
                     data.RefValue(symbolic=False, value=object_id))
 
 
-def checkout(object_id: str):
+def checkout(name: str):
+    object_id = get_object_id(name)
     commit = get_commit(object_id)
     read_tree(commit.tree)
-    data.update_ref("HEAD", data.RefValue(symbolic=False, value=object_id))
+
+    if is_branch(name):
+        head = data.RefValue(
+            symbolic=True, value=os.path.join("refs", "haeds", name))
+    else:
+        head = data.RefValue(symbolic=False, value=object_id)
+
+    data.update_ref("HEAD", head, deref=False)
 
 
 Commit = namedtuple("Commit", ["tree", "parent", "message"])
+
+
+def is_branch(branch: str) -> bool:
+    return data.get_ref(os.path.join("refs", "heads", branch)).value is not None
 
 
 def get_commit(object_id: str) -> Commit:
@@ -161,7 +179,7 @@ def get_object_id(name: str) -> str:
     ]
 
     for ref in ref_to_try:
-        if data.get_ref(ref, deref=False):
+        if data.get_ref(ref, deref=False).value:
             return data.get_ref(ref).value
 
     is_hex = all(c in string.hexdigits for c in name)
