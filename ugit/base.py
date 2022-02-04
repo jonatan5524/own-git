@@ -29,14 +29,32 @@ def checkout(name: str):
 
     if is_branch(name):
         head = data.RefValue(
-            symbolic=True, value=os.path.join("refs", "haeds", name))
+            symbolic=True, value=os.path.join("refs", "heads", name))
     else:
         head = data.RefValue(symbolic=False, value=object_id)
 
     data.update_ref("HEAD", head, deref=False)
 
 
+def get_branch_name():
+    head = data.get_ref("HEAD", deref=False)
+
+    if not head.symbolic:
+        return None
+
+    head = head.value
+
+    assert head.startswith(os.path.join("refs", "heads"))
+
+    return os.path.relpath(head, os.path.join("refs", "heads"))
+
+
 Commit = namedtuple("Commit", ["tree", "parent", "message"])
+
+
+def iter_branch_names():
+    for refname, _ in data.iter_refs(os.path.join("refs", "heads")):
+        yield os.path.relpath(refname, os.path.join("refs", "heads"))
 
 
 def is_branch(branch: str) -> bool:

@@ -62,8 +62,11 @@ def parse_args():
 
     branch_parser = commands.add_parser("branch")
     branch_parser.set_defaults(func=branch)
-    branch_parser.add_argument("name")
+    branch_parser.add_argument("name", nargs="?")
     branch_parser.add_argument("start_point", default="@", type=oid, nargs="?")
+
+    status_parser = commands.add_parser("status")
+    status_parser.set_defaults(func=status)
 
     return parser.parse_args()
 
@@ -144,5 +147,22 @@ def k(args: argparse.Namespace):
 
 
 def branch(args: argparse.Namespace):
-    base.create_branch(args.name, args.start_point)
-    print(f"Branch {args.name} created at {args.start_point[:10]}")
+    if not args.name:
+        current = base.get_branch_name()
+
+        for branch in base.iter_branch_names():
+            prefix = "*" if branch == current else ' '
+            print(f"{prefix} {branch}")
+    else:
+        base.create_branch(args.name, args.start_point)
+        print(f"Branch {args.name} create at {args.start_point[:10]}")
+
+
+def status(args: argparse.Namespace):
+    head = base.get_object_id("@")
+    branch = base.get_branch_name()
+
+    if branch:
+        print(f"On branch {branch}")
+    else:
+        print(f"HEAD detached at {head[:10]}")
