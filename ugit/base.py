@@ -3,6 +3,8 @@ import string
 from typing import Deque, Dict, Iterator, Set, Tuple
 from collections import deque, namedtuple
 
+from numpy import object_
+
 from . import data
 
 
@@ -15,6 +17,10 @@ def init():
 def create_branch(name: str, object_id: str):
     data.update_ref(os.path.join("refs", "heads", name),
                     data.RefValue(symbolic=False, value=object_id))
+
+
+def reset(object_id: str):
+    data.update_ref("HEAD", data.RefValue(symbolic=False, value=object_id))
 
 
 def create_tag(name: str, object_id: str):
