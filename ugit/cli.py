@@ -100,10 +100,16 @@ def commit(args: argparse.Namespace):
 
 
 def log(args: argparse.Namespace):
+    refs = {}
+
+    for refname, ref in data.iter_refs():
+        refs.setdefault(ref.value, []).append(refname)
+
     for object_id in base.iter_commits_and_parents({args.oid}):
         commit = base.get_commit(object_id)
 
-        print(f"commit {object_id}\n")
+        refs_str = f"({', '.join(refs[object_id])})" if object_id in refs else ""
+        print(f"commit {object_id}{refs_str}\n")
         print(textwrap.indent(commit.message, "			"))
         print("")
 
