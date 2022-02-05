@@ -18,6 +18,7 @@ will implement the following git commands features:
 - status
 - reset
 - show
+- diff
 
 requirements: - graphviz installed on your system
 

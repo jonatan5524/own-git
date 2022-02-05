@@ -46,3 +46,15 @@ def diff_blobs(object_from: str, object_to: str, path: str = "blob") -> bytes:
             output, _ = proc.communicate()
 
         return output
+
+
+def iter_changed_files(tree_from: str, tree_to: str) -> Iterator[Tuple[str, str]]:
+    for path, object_from, object_to in compare_trees(tree_from, tree_to):
+        if object_from != object_to:
+            action = (
+                "new file" if not object_from else
+                "deleted" if not object_to else
+                "modified"
+            )
+
+            yield path, action
