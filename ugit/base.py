@@ -241,3 +241,19 @@ def iter_commits_and_parents(object_ids: Deque[str]) -> Iterator[str]:
 
         commit = get_commit(object_id)
         object_ids.appendleft(commit.parent)
+
+
+def get_working_tree() -> Dict[str, str]:
+    result = {}
+
+    for root, _, filenames in os.walk("."):
+        for filename in filenames:
+            path = os.path.relpath(os.path.join(root, filename))
+
+            if is_ignored(path) or not os.path.isfile(path):
+                continue
+
+            with open(path, "rb") as f:
+                result[path] = data.hash_object(f.read())
+
+    return result

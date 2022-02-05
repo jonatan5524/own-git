@@ -78,6 +78,10 @@ def parse_args():
     show_parser.set_defaults(func=show)
     show_parser.add_argument("oid", default="@", type=oid, nargs="?")
 
+    diff_parser = commands.add_parser("diff")
+    diff_parser.set_defaults(func=diff_cmd)
+    diff_parser.add_argument("commit", default="@", type=oid, nargs="?")
+
     return parser.parse_args()
 
 
@@ -210,3 +214,12 @@ def _print_commit(object_id: str, commit: base.Commit, refs: Dict[str, str] = No
     print(f"commit {object_id}{refs_str}\n")
     print(textwrap.indent(commit.message, "			"))
     print("")
+
+
+def diff_cmd(args: argparse.Namespace):
+    tree = args.commit and base.get_commit(args.commit).tree
+
+    result = diff.diff_trees(base.get_tree(tree), base.get_working_tree())
+
+    sys.stdout.flush()
+    sys.stdout.buffer.write(result)
