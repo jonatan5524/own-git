@@ -8,6 +8,7 @@ from typing import Dict
 
 from . import base
 from . import data
+from . import diff
 
 
 def main():
@@ -188,7 +189,19 @@ def show(args: argparse.Namespace):
         return
 
     commit = base.get_commit(args.oid)
+    parent_tree = None
+
+    if commit.parent:
+        parent_tree = base.get_commit(commit.parent).tree
+
     _print_commit(args.oid, commit)
+    result = diff.diff_trees(
+        base.get_tree(parent_tree),
+        base.get_tree(commit.tree)
+    )
+
+    sys.stdout.flush()
+    sys.stdout.buffer.write(result)
 
 
 def _print_commit(object_id: str, commit: base.Commit, refs: Dict[str, str] = None):
