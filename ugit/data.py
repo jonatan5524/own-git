@@ -89,7 +89,7 @@ def _get_ref_internal(ref: str, deref) -> Tuple[str, RefValue]:
 
 
 def iter_refs(prefix: str = "", deref: bool = True) -> Iterator[Tuple[str, RefValue]]:
-    refs = ["HEAD"]
+    refs = ["HEAD", "MERGE_HEAD"]
 
     for root, _, filenames in os.walk(os.path.join(GIT_DIR, "refs")):
         root = os.path.relpath(root, GIT_DIR)
@@ -98,4 +98,12 @@ def iter_refs(prefix: str = "", deref: bool = True) -> Iterator[Tuple[str, RefVa
     for refname in refs:
         if not refname.startswith(prefix):
             continue
-        yield refname, get_ref(refname, deref=deref)
+        ref = get_ref(refname, deref=deref)
+
+        if ref.value:
+            yield refname, ref
+
+
+def delete_ref(ref: str, defer=True):
+    ref = _get_ref_internal(ref, defer)[0]
+    os.remove(os.path.join(GIT_DIR, ref))

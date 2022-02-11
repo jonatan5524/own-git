@@ -1,15 +1,18 @@
+
+import itertools
+import operator
 import os
 import string
-from typing import Deque, Dict, Iterator, Set, Tuple
+from typing import Deque, Dict, Iterator, Tuple
 from collections import deque, namedtuple
 
-from numpy import object_
-
 from . import data
+from . import diff
 
 
 def init():
     data.init()
+    commit("init")
     data.update_ref("HEAD", data.RefValue(
         symbolic=True, value=os.path.join("refs", "heads", "master")))
 
@@ -55,7 +58,7 @@ def get_branch_name():
     return os.path.relpath(head, os.path.join("refs", "heads"))
 
 
-Commit = namedtuple("Commit", ["tree", "parent", "message"])
+Commit = namedtuple("Commit", ["tree", "parents", "message"])
 
 
 def iter_branch_names():
@@ -68,28 +71,23 @@ def is_branch(branch: str) -> bool:
 
 
 def get_commit(object_id: str) -> Commit:
-    parent = None
+    parents = []
 
-    commit = data.get_object(object_id, "commit").decode()
-    lines = commit.splitlines()
+    commit = data.get_object(object_id, 'commit').decode()
+    lines = iter(commit.splitlines())
 
-    for line in lines:
-        if " " not in line:
-            break
+    for line in itertools.takewhile(operator.truth, lines):
+        key, value = line.split(' ', 1)
 
-        key, value = line.split(" ", 1)
-
-        if key == "tree":
+        if key == 'tree':
             tree = value
-        elif key == "parent":
-            parent = value
+        elif key == 'parent':
+            parents.append(value)
         else:
-            assert False, f"Uknown field {key}"
+            assert False, f'Unknown field {key}'
 
-    if parent == None:
-        line = lines[lines.index(line) + 1]
-
-    return Commit(tree=tree, parent=parent, message=line)
+    message = '\n'.join(lines)
+    return Commit(tree=tree, parents=parents, message=message)
 
 
 def commit(massage: str) -> str:
@@ -97,7 +95,13 @@ def commit(massage: str) -> str:
 
     head = data.get_ref("HEAD").value
     if head:
-        commit += f"parent {head}"
+        commit += f"parent {head}\n"
+
+    merge_head = data.get_ref("MERGE_HEAD").value
+
+    if merge_head:
+        commit += f"parent {merge_head}\n"
+        data.delete_ref("MERGE_HEAD", defer=False)
 
     commit += "\n"
     commit += f"{massage}\n"
@@ -240,7 +244,8 @@ def iter_commits_and_parents(object_ids: Deque[str]) -> Iterator[str]:
         yield object_id
 
         commit = get_commit(object_id)
-        object_ids.appendleft(commit.parent)
+        object_ids.extendleft(commit.parents[:1])
+        object_ids.extend(commit.parents[1:])
 
 
 def get_working_tree() -> Dict[str, str]:
@@ -257,3 +262,27 @@ def get_working_tree() -> Dict[str, str]:
                 result[path] = data.hash_object(f.read())
 
     return result
+
+
+def merge(other: str):
+    head = data.get_ref("HEAD").value
+
+    assert head
+
+    commit_head = get_commit(head)
+    commit_other = get_commit(other)
+
+    data.update_ref("MERGE_HEAD", data.RefValue(symbolic=False, value=other))
+
+    read_tree_merged(commit_head.tree, commit_other.tree)
+    print("Merged in working tree\nPlease commit")
+
+
+def read_tree_merged(tree_head: str, tree_other: str):
+    _empty_current_directory()
+
+    for path, blob in diff.merge_trees(get_tree(tree_head), get_tree(tree_other)).items():
+        os.makedirs(f"./{os.path.dirname(path)}", exist_ok=True)
+
+        with open(path, "wb") as f:
+            f.write(blob)

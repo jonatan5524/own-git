@@ -82,6 +82,10 @@ def parse_args():
     diff_parser.set_defaults(func=diff_cmd)
     diff_parser.add_argument("commit", default="@", type=oid, nargs="?")
 
+    merge_parser = commands.add_parser("merge")
+    merge_parser.set_defaults(func=merge)
+    merge_parser.add_argument("commit", type=oid)
+
     return parser.parse_args()
 
 
@@ -123,8 +127,6 @@ def log(args: argparse.Namespace):
         commit = base.get_commit(object_id)
         _print_commit(object_id, commit, refs.get(object_id))
 
-        object_id = commit.parent
-
 
 def checkout(args: argparse.Namespace):
     base.checkout(args.commit)
@@ -150,8 +152,8 @@ def k(args: argparse.Namespace):
         commit = base.get_commit(object_id)
         dot += f'"{object_id}" [shape=box style=filled label="{object_id[:10]}"]\n'
 
-        if commit.parent:
-            dot += f'"{object_id}" -> "{commit.parent}"\n'
+        for parent in commit.parents:
+            dot += f'"{object_id}" -> "{parent}"\n'
 
     dot += "}"
     print(dot)
@@ -183,6 +185,11 @@ def status(args: argparse.Namespace):
     else:
         print(f"HEAD detached at {head[:10]}")
 
+    merge_head = data.get_ref("MERGE_HEAD").value
+
+    if merge_head:
+        print(f"merging with {merge_head[:10]}")
+
     print("\nChanges to be commited:\n")
     head_tree = head and base.get_commit(head).tree
 
@@ -201,8 +208,8 @@ def show(args: argparse.Namespace):
     commit = base.get_commit(args.oid)
     parent_tree = None
 
-    if commit.parent:
-        parent_tree = base.get_commit(commit.parent).tree
+    if commit.parents:
+        parent_tree = base.get_commit(commit.parents[0]).tree
 
     _print_commit(args.oid, commit)
     result = diff.diff_trees(
@@ -229,3 +236,7 @@ def diff_cmd(args: argparse.Namespace):
 
     sys.stdout.flush()
     sys.stdout.buffer.write(result)
+
+
+def merge(args: argparse.Namespace):
+    base.merge(args.commit)
