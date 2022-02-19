@@ -60,28 +60,30 @@ def iter_changed_files(tree_from: str, tree_to: str) -> Iterator[Tuple[str, str]
             yield path, action
 
 
-def merge_trees(tree_head: Dict[str, str], tree_other: Dict[str, str]) -> Dict[str, bytes]:
+def merge_trees(tree_base: Dict[str, str], tree_head: Dict[str, str], tree_other: Dict[str, str]) -> Dict[str, bytes]:
     tree = {}
 
-    for path, object_head, object_other in compare_trees(tree_head, tree_other):
-        tree[path] = merge_blobs(object_head, object_other)
+    for path, object_base, object_head, object_other in compare_trees(tree_base, tree_head, tree_other):
+        tree[path] = merge_blobs(object_base, object_head, object_other)
 
     return tree
 
 
-def merge_blobs(object_head: str, object_other: str) -> bytes:
-    with Temp() as file_head, Temp() as file_other:
-        for object_id, file in ((object_head, file_head), (object_other, file_head)):
+def merge_blobs(object_base: str, object_head: str, object_other: str) -> bytes:
+    with Temp() as file_base, Temp() as file_head, Temp() as file_other:
+        for object_id, file in ((object_base, file_base), (object_head, file_head), (object_other, file_head)):
             if object_id:
                 file.write(data.get_object(object_id))
                 file.flush()
 
         with subprocess.Popen(
-            ["diff",
-                "-DHEAD", file_head.name,
-                file_other.name
+            ["diff3", "-m",
+             "-L", "HEAD", file_head.name,
+             "-L", "BASE", file_base.name,
+             "-L", "MERGE_HEAD", file_other.name
              ], stdout=subprocess.PIPE
         ) as proc:
             output, _ = proc.communicate()
+            assert proc.returncode in (0, 1)
 
     return output

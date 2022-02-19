@@ -269,20 +269,30 @@ def merge(other: str):
 
     assert head
 
+    merge_base = get_merge_base(other, head)
+    commit_base = get_commit(merge_base)
     commit_head = get_commit(head)
     commit_other = get_commit(other)
 
     data.update_ref("MERGE_HEAD", data.RefValue(symbolic=False, value=other))
 
-    read_tree_merged(commit_head.tree, commit_other.tree)
+    read_tree_merged(commit_base.tree, commit_head.tree, commit_other.tree)
     print("Merged in working tree\nPlease commit")
 
 
-def read_tree_merged(tree_head: str, tree_other: str):
+def read_tree_merged(tree_base: str, tree_head: str, tree_other: str):
     _empty_current_directory()
 
-    for path, blob in diff.merge_trees(get_tree(tree_head), get_tree(tree_other)).items():
+    for path, blob in diff.merge_trees(get_tree(tree_base), get_tree(tree_head), get_tree(tree_other)).items():
         os.makedirs(f"./{os.path.dirname(path)}", exist_ok=True)
 
         with open(path, "wb") as f:
             f.write(blob)
+
+
+def get_merge_base(object_id: str, second_object_id: str) -> str:
+    parents = set(iter_commits_and_parents({object_id}))
+
+    for oid in iter_commits_and_parents({second_object_id}):
+        if oid in parents:
+            return oid

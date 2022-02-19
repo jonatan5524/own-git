@@ -19,6 +19,7 @@ will implement the following git commands features:
 - reset
 - show
 - diff
+- merge
 
 requirements: - graphviz installed on your system
 
