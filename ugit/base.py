@@ -3,7 +3,7 @@ import itertools
 import operator
 import os
 import string
-from typing import Deque, Dict, Iterator, Tuple
+from typing import Deque, Dict, Iterator, List, Tuple
 from collections import deque, namedtuple
 
 from . import data
@@ -12,7 +12,6 @@ from . import diff
 
 def init():
     data.init()
-    commit("init")
     data.update_ref("HEAD", data.RefValue(
         symbolic=True, value=os.path.join("refs", "heads", "master")))
 
@@ -246,6 +245,31 @@ def iter_commits_and_parents(object_ids: Deque[str]) -> Iterator[str]:
         commit = get_commit(object_id)
         object_ids.extendleft(commit.parents[:1])
         object_ids.extend(commit.parents[1:])
+
+
+def iter_objects_in_commits(object_ids: List[str]) -> Iterator[str]:
+    visited = set()
+
+    def iter_object_in_tree(object_id: str):
+        visited.add(object_id)
+
+        yield object_id
+
+        for type_, object_id, _ in _iter_tree_entries(object_id):
+            if object_id not in visited:
+                if type_ == "tree":
+                    yield from iter_object_in_tree(object_id)
+                else:
+                    visited.add(object_id)
+                    yield object_id
+
+    for object_id in iter_commits_and_parents(object_ids):
+        yield object_id
+
+        commit = get_commit(object_id)
+
+        if commit.tree not in visited:
+            yield from iter_object_in_tree(commit.tree)
 
 
 def get_working_tree() -> Dict[str, str]:

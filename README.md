@@ -20,6 +20,7 @@ will implement the following git commands features:
 - show
 - diff
 - merge
+- fetch (local file system repo)
 
 requirements: - graphviz installed on your system
 

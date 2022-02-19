@@ -1,11 +1,22 @@
+from contextlib import contextmanager
 import hashlib
 import os
+import shutil
 from typing import Iterator, Tuple
 import zlib
 
 from collections import namedtuple
 
-GIT_DIR = ".ugit"
+GIT_DIR = None
+
+
+@contextmanager
+def change_git_dir(new_dir):
+    global GIT_DIR
+    old_dir = GIT_DIR
+    GIT_DIR = f'{new_dir}/.ugit'
+    yield
+    GIT_DIR = old_dir
 
 
 def init():
@@ -107,3 +118,20 @@ def iter_refs(prefix: str = "", deref: bool = True) -> Iterator[Tuple[str, RefVa
 def delete_ref(ref: str, defer=True):
     ref = _get_ref_internal(ref, defer)[0]
     os.remove(os.path.join(GIT_DIR, ref))
+
+
+def object_exists(object_id: str) -> bool:
+    return os.path.isfile(os.path.join(GIT_DIR, "objects", object_id))
+
+
+def fetch_object_if_missing(object_id: str, remote_git_dir: str):
+    if object_exists(object_id):
+        return
+
+    remote_git_dir += "/.ugit"
+
+    os.makedirs(os.path.join(GIT_DIR, "objects",
+                object_id[:2]), exist_ok=True)
+
+    shutil.copy(os.path.join(remote_git_dir, "objects", object_id[:2], object_id[2:]),
+                os.path.join(GIT_DIR, "objects", object_id[:2], object_id[2:]))
