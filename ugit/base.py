@@ -185,6 +185,11 @@ def _checkout_index(index):
             f.write(data.get_object(object_id, "blob"))
 
 
+def get_index_tree():
+    with data.get_index() as index:
+        return index
+
+
 def _empty_current_directory():
     for root, dirnames, filenames in os.walk(".", topdown=False):
         for filename in filenames:
