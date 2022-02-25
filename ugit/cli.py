@@ -82,7 +82,8 @@ def parse_args():
 
     diff_parser = commands.add_parser("diff")
     diff_parser.set_defaults(func=diff_cmd)
-    diff_parser.add_argument("commit", default="@", type=oid, nargs="?")
+    diff_parser.add_argument("--cached", action="store_true")
+    diff_parser.add_argument("commit", nargs="?")
 
     merge_parser = commands.add_parser("merge")
     merge_parser.set_defaults(func=merge)
@@ -254,9 +255,26 @@ def _print_commit(object_id: str, commit: base.Commit, refs: Dict[str, str] = No
 
 
 def diff_cmd(args: argparse.Namespace):
-    tree = args.commit and base.get_commit(args.commit).tree
+    object_id = args.commit and base.get_object_id(args.commit)
 
-    result = diff.diff_trees(base.get_tree(tree), base.get_working_tree())
+    if args.commit:
+        tree_from = base.get_tree(
+            object_id and base.get_commit(object_id).tree)
+
+    if args.cached:
+        tree_to = base.get_index_tree()
+
+        if not args.commit:
+            object_id = base.get_object_id("@")
+            tree_from = base.get_tree(
+                object_id and base.get_commit(object_id).tree)
+    else:
+        tree_to = base.get_working_tree()
+
+        if not args.commit:
+            tree_from = base.get_index_tree()
+
+    result = diff.diff_trees(tree_from, tree_to)
 
     sys.stdout.flush()
     sys.stdout.buffer.write(result)
