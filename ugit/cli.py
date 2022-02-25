@@ -11,6 +11,7 @@ from . import data
 from . import diff
 from . import remote
 
+
 def main():
     with data.change_git_dir('.'):
         args = parse_args()
@@ -95,6 +96,11 @@ def parse_args():
     fetch_parser = commands.add_parser("fetch")
     fetch_parser.set_defaults(func=fetch)
     fetch_parser.add_argument("remote")
+
+    push_parser = commands.add_parser("push")
+    push_parser.set_defaults(func=push)
+    push_parser.add_argument("remote")
+    push_parser.add_argument("branch")
 
     return parser.parse_args()
 
@@ -255,5 +261,10 @@ def merge(args: argparse.Namespace):
 def merge_base(args: argparse.Namespace):
     print(base.get_merge_base(args.commit1, args.commit2))
 
+
 def fetch(args: argparse.Namespace):
     remote.fetch(args.remote)
+
+
+def push(args: argparse.Namespace):
+    remote.push(args.remote, os.path.join("refs", "heads", args.branch))

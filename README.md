@@ -21,6 +21,7 @@ will implement the following git commands features:
 - diff
 - merge
 - fetch (local file system repo)
+- push (local file system repo)
 
 requirements: - graphviz installed on your system
 

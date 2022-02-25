@@ -23,3 +23,24 @@ def fetch(remote_path: str):
 def _get_remote_refs(remote_path: str, prefix: str = '') -> Dict[str, str]:
     with data.change_git_dir(remote_path):
         return {refname: ref.value for refname, ref in data.iter_refs(prefix)}
+
+
+def push(remote_path: str, refname: str):
+    remote_refs = _get_remote_refs(remote_path)
+    remote_ref = remote_refs.get(refname)
+    local_ref = data.get_ref(refname).value
+
+    assert local_ref
+    assert not remote_ref or base.is_ancestor_of(local_ref, remote_ref)
+
+    known_remote_refs = filter(data.object_exists, remote_refs.values())
+    remote_objects = set(base.iter_objects_in_commits(known_remote_refs))
+    local_objects = set(base.iter_objects_in_commits({local_ref}))
+    objects_to_push = local_objects - remote_objects
+
+    for object_id in objects_to_push:
+        data.push_object(object_id, remote_path)
+
+    with data.change_git_dir(remote_path):
+        data.update_ref(refname, data.RefValue(
+            symbolic=False, value=local_ref))
