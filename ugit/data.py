@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 import hashlib
+import json
 import os
 import shutil
 from typing import Iterator, Tuple
@@ -145,3 +146,17 @@ def push_object(object_id: str, remote_git_dir: str):
 
     shutil.copy(os.path.join(GIT_DIR, "objects", object_id[:2], object_id[2:]),
                 os.path.join(remote_git_dir, "objects", object_id[:2], object_id[2:]))
+
+
+@contextmanager
+def get_index():
+    index = {}
+
+    if os.path.isfile(os.path.join(GIT_DIR, "index")):
+        with open(os.path.join(GIT_DIR, "index")) as f:
+            index = json.load(f)
+
+    yield index
+
+    with open(os.path.join(GIT_DIR, "index"), "w") as f:
+        json.dump(index, f)

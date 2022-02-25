@@ -1,4 +1,5 @@
 
+from genericpath import exists
 import itertools
 import operator
 import os
@@ -33,7 +34,7 @@ def create_tag(name: str, object_id: str):
 def checkout(name: str):
     object_id = get_object_id(name)
     commit = get_commit(object_id)
-    read_tree(commit.tree)
+    read_tree(commit.tree, update_working=True)
 
     if is_branch(name):
         head = data.RefValue(
@@ -112,45 +113,76 @@ def commit(massage: str) -> str:
     return object_id
 
 
-def write_tree(directory: str = ".") -> str:
-    entries = []
-    with os.scandir(directory) as dir:
-        for entry in dir:
-            full_path = os.path.join(directory, entry.name)
+def write_tree() -> str:
+    index_as_tree = {}
 
-            if is_ignored(full_path):
-                continue
+    with data.get_index() as index:
+        for path, object_id in index.items():
+            dirpath, filename = os.path.split(path)
 
-            if entry.is_file(follow_symlinks=False):
-                fmt = "blob"
+            current = index_as_tree
 
-                with open(full_path, "rb") as f:
-                    object_id = data.hash_object(f.read())
+            for direname in dirpath:
+                current = current.setdefault(direname, {})
 
-            elif entry.is_dir(follow_symlinks=False):
-                fmt = "tree"
-                object_id = write_tree(full_path)
+            current[filename] = object_id
 
-            entries.append((entry.name, object_id, fmt))
+    def write_tree_recursive(tree_dict: Dict[str, str]) -> str:
+        entries = []
 
-    tree = "".join(f"{fmt} {object_id} {name}\n"
-                   for name, object_id, fmt in sorted(entries))
+        for name, value in tree_dict.items():
+            if type(value) is dict:
+                type_ = 'tree'
 
-    return data.hash_object(tree.encode(), "tree")
+                object_id = write_tree_recursive(value)
+            else:
+                type_ = 'blob'
+                object_id = value
+
+            entries.append((name, object_id, type_))
+
+        tree = ''.join(f'{type_} {object_id} {name}\n'
+                       for name, object_id, type_ in sorted(entries))
+
+        return data.hash_object(tree.encode(), "tree")
+
+    return write_tree_recursive(index_as_tree)
 
 
 def is_ignored(path: str) -> bool:
     return ".ugit" in path.split("/")
 
 
-def read_tree(tree_object_id: str):
+def read_tree(tree_object_id: str, update_working: bool = False):
+    with data.get_index() as index:
+        index.clear()
+        index.update(get_tree(tree_object_id))
+
+        if update_working:
+            _checkout_index(index)
+
+
+def read_tree_merged(tree_base: str, tree_head: str, tree_other: str, update_working: bool = False):
+    with data.get_index() as index:
+        index.clear()
+        index.update(diff.merge_trees(
+            get_tree(tree_base),
+            get_tree(tree_head),
+            get_tree(tree_other)
+        ))
+
+        if update_working:
+            _checkout_index(index)
+
+
+def _checkout_index(index):
     _empty_current_directory()
 
-    for path, object_id in get_tree(tree_object_id, base_path="./").items():
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+    for path, object_id in index.items():
+        os.makedirs(os.path.dirname(os.path.join("./", path)), exist_ok=True)
 
         with open(path, "wb") as f:
-            f.write(data.get_object(object_id))
+            f.write(data.get_object(object_id, "blob"))
 
 
 def _empty_current_directory():
@@ -297,7 +329,7 @@ def merge(other: str):
     commit_other = get_commit(other)
 
     if merge_base == head:
-        read_tree(commit_other.tree)
+        read_tree(commit_other.tree, update_working=True)
         data.update_ref('HEAD', data.RefValue(symbolic=False, value=other))
         print('Fast-forward merge, no need to commit')
 
@@ -308,18 +340,9 @@ def merge(other: str):
     commit_base = get_commit(merge_base)
     commit_head = get_commit(head)
 
-    read_tree_merged(commit_base.tree, commit_head.tree, commit_other.tree)
+    read_tree_merged(commit_base.tree, commit_head.tree,
+                     commit_other.tree, update_working=True)
     print("Merged in working tree\nPlease commit")
-
-
-def read_tree_merged(tree_base: str, tree_head: str, tree_other: str):
-    _empty_current_directory()
-
-    for path, blob in diff.merge_trees(get_tree(tree_base), get_tree(tree_head), get_tree(tree_other)).items():
-        os.makedirs(f"./{os.path.dirname(path)}", exist_ok=True)
-
-        with open(path, "wb") as f:
-            f.write(blob)
 
 
 def get_merge_base(object_id: str, second_object_id: str) -> str:
@@ -332,3 +355,30 @@ def get_merge_base(object_id: str, second_object_id: str) -> str:
 
 def is_ancestor_of(commit: str, maybe_ancestor: str) -> bool:
     return maybe_ancestor in iter_commits_and_parents({commit})
+
+
+def add(filenames: List[str]):
+    def add_file(filename: str):
+        filename = os.path.relpath(filename)
+
+        with open(filename, 'rb') as f:
+            object_id = data.hash_object(f.read())
+
+        index[filename] = object_id
+
+    def add_directory(dirname: str):
+        for root, _, filename in os.walk(dirname):
+            for filename in filenames:
+                path = os.path.relpath(os.path.join(root, filename))
+
+                if is_ignored(path) or not os.path.isfile(path):
+                    continue
+
+                add_file(path)
+
+    with data.get_index() as index:
+        for name in filenames:
+            if os.path.isfile(name):
+                add_file(name)
+            elif os.path.isdir(name):
+                add_directory(name)

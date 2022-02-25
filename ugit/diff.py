@@ -64,7 +64,8 @@ def merge_trees(tree_base: Dict[str, str], tree_head: Dict[str, str], tree_other
     tree = {}
 
     for path, object_base, object_head, object_other in compare_trees(tree_base, tree_head, tree_other):
-        tree[path] = merge_blobs(object_base, object_head, object_other)
+        tree[path] = data.hash_object(merge_blobs(
+            object_base, object_head, object_other))
 
     return tree
 
